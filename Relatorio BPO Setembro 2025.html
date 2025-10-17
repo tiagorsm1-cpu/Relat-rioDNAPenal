@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Financeiro Trimestral - DNA Penal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+</head>
+<body>
+
+    <div id="app" class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-8">
+        <div class="max-w-7xl mx-auto">
+            <div class="bg-white rounded-xl shadow-2xl p-6 sm:p-8 mb-8">
+                <div class="flex items-center justify-between flex-wrap gap-4">
+                    <div class="flex items-center gap-4 sm:gap-6 flex-wrap">
+                        <div class="bg-gradient-to-r from-slate-700 via-blue-700 to-blue-800 px-6 py-3 sm:px-8 sm:py-4 rounded-lg shadow-lg">
+                            <div class="flex items-center gap-3">
+                                <h1 class="text-4xl font-bold text-white tracking-tight">DNA</h1>
+                                <div class="text-left">
+                                    <p class="text-white text-sm font-semibold leading-tight">ADVOCACIA</p>
+                                    <p class="text-white text-sm font-semibold leading-tight">+ PENAL</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-slate-600 text-lg font-medium">Relatório Financeiro</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-sm text-slate-500">Período Analisado</p>
+                        <p class="text-xl font-semibold text-slate-800">Set/24 - Set/25</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-xl p-4 sm:p-6 mb-8">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Faturamento e Impostos por Trimestre</h2>
+                <div class="relative h-[400px] w-full">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-xl shadow-xl p-4 sm:p-6">
+                <h2 class="text-2xl font-bold text-slate-800 mb-6">Detalhamento Trimestral</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b-2 border-slate-200">
+                                <th class="text-left py-4 px-4 text-slate-600 font-semibold">Período</th>
+                                <th class="text-right py-4 px-4 text-slate-600 font-semibold">Faturamento Total</th>
+                                <th class="text-right py-4 px-4 text-slate-600 font-semibold">Impostos Totais</th>
+                                <th class="text-right py-4 px-4 text-slate-600 font-semibold">% Imposto</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Registra o plugin datalabels globalmente
+            Chart.register(ChartDataLabels);
+
+            // Dados brutos extraídos da imagem
+            const monthlyData = [
+                { mes: 'set/24', imposto: 1981.36, faturamento: 34516.00 },
+                { mes: 'out/24', imposto: 2577.98, faturamento: 40706.30 },
+                { mes: 'nov/24', imposto: 2017.71, faturamento: 30182.00 },
+                { mes: 'dez/24', imposto: 5037.08, faturamento: 75166.00 },
+                { mes: 'jan/25', imposto: 2741.23, faturamento: 37031.00 },
+                { mes: 'fev/25', imposto: 3431.24, faturamento: 46350.00 },
+                { mes: 'mar/25', imposto: 4858.94, faturamento: 64885.11 },
+                { mes: 'abr/25', imposto: 6552.92, faturamento: 82175.01 },
+                { mes: 'mai/25', imposto: 5112.00, faturamento: 64608.00 },
+                { mes: 'jun/25', imposto: 4166.97, faturamento: 52100.00 },
+                { mes: 'jul/25', imposto: 5442.05, faturamento: 67875.00 },
+                { mes: 'ago/25', imposto: 2929.70, faturamento: 35550.00 },
+                { mes: 'set/25', imposto: 5948.16, faturamento: 72255.20 }
+            ];
+
+            // --- LÓGICA: Aglutinar dados em trimestres ---
+            const quarterlyData = [];
+            for (let i = 0; i < monthlyData.length; i += 3) {
+                const chunk = monthlyData.slice(i, i + 3);
+                
+                const totalFaturamento = chunk.reduce((sum, item) => sum + item.faturamento, 0);
+                const totalImposto = chunk.reduce((sum, item) => sum + item.imposto, 0);
+
+                // Cria uma etiqueta para o período (ex: "set/24 - nov/24")
+                let periodLabel = chunk[0].mes;
+                if (chunk.length > 1) {
+                    periodLabel = `${chunk[0].mes.split('/')[0]} - ${chunk[chunk.length - 1].mes}`; // Mostra só o mês de início
+                } else {
+                    periodLabel = chunk[0].mes; // Para o último mês avulso
+                }
+
+                quarterlyData.push({
+                    mes: periodLabel,
+                    imposto: totalImposto,
+                    faturamento: totalFaturamento
+                });
+            }
+            
+            // A variável 'data' agora contém os dados aglutinados
+            const data = quarterlyData;
+
+            // Função para formatar valores como moeda brasileira
+            const formatCurrency = (value) => {
+                return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            };
+
+            // --- Lógica para popular a Tabela ---
+            const tableBody = document.getElementById('table-body');
+            let tableHtml = '';
+
+            data.forEach(item => {
+                const percentualImposto = item.faturamento > 0 ? ((item.imposto / item.faturamento) * 100).toFixed(2) : '0.00';
+                tableHtml += `
+                    <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td class="py-4 px-4 font-medium text-slate-800">${item.mes}</td>
+                        <td class="text-right py-4 px-4 text-slate-700">${formatCurrency(item.faturamento)}</td>
+                        <td class="text-right py-4 px-4 text-red-600 font-medium">${formatCurrency(item.imposto)}</td>
+                        <td class="text-right py-4 px-4 text-slate-600">${percentualImposto}%</td>
+                    </tr>
+                `;
+            });
+            tableBody.innerHTML = tableHtml;
+
+            // --- Lógica para renderizar o Gráfico ---
+            const ctx = document.getElementById('financialChart').getContext('2d');
+
+            const chartLabels = data.map(item => item.mes);
+            const faturamentoData = data.map(item => item.faturamento);
+            const impostoData = data.map(item => item.imposto);
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Impostos',
+                            data: impostoData,
+                            borderColor: '#ef4444',
+                            backgroundColor: '#ef4444', // Usado para o ponto
+                            borderWidth: 3,
+                            pointRadius: 6,
+                            pointBackgroundColor: '#ef4444',
+                            tension: 0.2,
+                            yAxisID: 'y',
+                            datalabels: { // Configuração para este dataset (Impostos)
+                                align: 'end',
+                                anchor: 'end',
+                                color: '#dc2626', // Vermelho mais escuro para o texto
+                                font: {
+                                    weight: 'bold',
+                                    size: 10
+                                },
+                                formatter: (value) => formatCurrency(value),
+                                offset: 8 // Distância do ponto
+                            }
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Faturamento',
+                            data: faturamentoData,
+                            backgroundColor: '#3b82f6', // Azul
+                            borderRadius: { topLeft: 8, topRight: 8 },
+                            yAxisID: 'y',
+                            datalabels: { // Configuração para este dataset (Faturamento)
+                                align: 'end',
+                                anchor: 'end',
+                                color: '#1e40af', // Azul mais escuro para o texto
+                                font: {
+                                    weight: 'bold',
+                                    size: 10
+                                },
+                                formatter: (value) => formatCurrency(value),
+                                offset: 8 // Distância da barra
+                            }
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                color: '#334155'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#fff',
+                            titleColor: '#334155',
+                            bodyColor: '#334155',
+                            borderColor: '#e2e8f0',
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${formatCurrency(context.raw)}`;
+                                }
+                            }
+                        },
+                        datalabels: { // Configurações globais (podem ser sobrescritas por dataset)
+                            display: true, // Garante que o plugin está ativo
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#64748b'
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: {
+                                color: '#e2e8f0',
+                                borderDash: [3, 3]
+                            },
+                            ticks: {
+                                color: '#64748b',
+                                callback: function(value, index, values) {
+                                    return `R$ ${(value / 1000).toFixed(0)}k`; // Mostra em K
+                                }
+                            }
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                }
+            });
+        });
+    </script>
+</body>
+</html>
